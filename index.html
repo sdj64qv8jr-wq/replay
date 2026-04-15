@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>REPLAY — リプレイ</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@100;200;300;400&family=Shippori+Mincho:wght@400;500;700&family=Cormorant+Garamond:ital,wght@0,200;0,300;1,200;1,300&display=swap');
+:root{
+  --bg:#020509; --teal:#4ed8d4; --t2:#26b0bc;
+  --vio:#9d8ec8; --rose:#d97a8c; --gold:#c8a76b;
+  --w:#ece8df; --dim:rgba(236,232,223,.42); --dimmer:rgba(236,232,223,.2);
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--w);font-family:'Noto Serif JP',serif;overflow-x:hidden;cursor:none}
+
+#dot{position:fixed;pointer-events:none;z-index:9999;width:5px;height:5px;border-radius:50%;background:var(--teal);transform:translate(-50%,-50%);box-shadow:0 0 10px var(--teal),0 0 28px rgba(78,216,212,.5)}
+#ring{position:fixed;pointer-events:none;z-index:9998;width:28px;height:28px;border-radius:50%;border:1px solid rgba(78,216,212,.45);transform:translate(-50%,-50%);transition:left .35s ease,top .35s ease}
+
+.noise{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.022;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:256px}
+.vig{position:fixed;inset:0;z-index:2;pointer-events:none;background:radial-gradient(ellipse at center,transparent 22%,rgba(2,5,9,.95) 100%)}
+#cv{position:fixed;inset:0;z-index:0}
+#bar{position:fixed;top:0;left:0;height:1px;width:0;background:linear-gradient(90deg,var(--t2),var(--vio),var(--rose));z-index:300;box-shadow:0 0 6px var(--t2);transition:width .08s}
+
+/* ── PLAYER ── */
+#player{position:fixed;bottom:0;left:0;right:0;z-index:500;padding:14px clamp(16px,5vw,60px) 22px;background:linear-gradient(to top,rgba(2,5,9,1) 0%,rgba(2,5,9,.85) 55%,transparent 100%);display:flex;align-items:flex-end;gap:16px}
+#pbtn{flex-shrink:0;width:42px;height:42px;border-radius:50%;border:1px solid rgba(78,216,212,.35);background:rgba(78,216,212,.07);color:var(--teal);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .25s;backdrop-filter:blur(8px)}
+#pbtn:hover{background:rgba(78,216,212,.2);border-color:var(--teal);box-shadow:0 0 16px rgba(78,216,212,.35)}
+.pmid{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.ptop{display:flex;justify-content:space-between;align-items:center}
+.tname{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:clamp(11px,1.3vw,14px);letter-spacing:4px;color:var(--dim)}
+.ttime{font-size:10px;letter-spacing:2px;color:var(--dimmer)}
+#vcv{width:100%;height:32px;display:block}
+#seek{width:100%;height:2px;-webkit-appearance:none;appearance:none;background:rgba(78,216,212,.12);outline:none;cursor:pointer;border-radius:2px;margin-top:2px}
+#seek::-webkit-slider-thumb{-webkit-appearance:none;width:9px;height:9px;border-radius:50%;background:var(--teal);box-shadow:0 0 6px var(--teal)}
+
+/* ── SECTIONS ── */
+.w{position:relative;z-index:10}
+section{min-height:100vh;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:90px clamp(20px,7vw,130px)}
+
+.rv{opacity:0;transform:translateY(30px);transition:opacity 1.2s ease,transform 1.2s ease}
+.rv.on{opacity:1;transform:translateY(0)}
+
+/* ── S0 OPENING ── */
+#s0{flex-direction:column;text-align:center}
+.s0y{font-family:'Cormorant Garamond',serif;font-size:10px;letter-spacing:10px;color:var(--teal);text-transform:uppercase;opacity:0;animation:fu 1s ease forwards .5s;display:block;margin-bottom:52px}
+.s0e{font-family:'Cormorant Garamond',serif;font-size:clamp(86px,17vw,210px);font-weight:200;font-style:italic;letter-spacing:-5px;line-height:.82;color:transparent;background:linear-gradient(155deg,var(--w) 0%,var(--teal) 38%,var(--vio) 68%,var(--w) 100%);background-size:300% auto;-webkit-background-clip:text;background-clip:text;opacity:0;animation:titleIn 2.5s ease forwards 1s,shim 9s linear infinite 3.5s;display:block}
+.s0j{font-family:'Shippori Mincho',serif;font-size:clamp(14px,2vw,22px);font-weight:400;letter-spacing:20px;color:var(--dim);opacity:0;animation:fu 1.2s ease forwards 2.7s;display:block;margin-top:22px}
+.s0rule{width:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),var(--vio),transparent);margin:52px auto;animation:ruler 1.3s ease forwards 3.3s}
+.s0c{font-size:clamp(12px,1.4vw,14px);font-weight:200;line-height:3.6;color:var(--dimmer);letter-spacing:3px;opacity:0;animation:fu 1.5s ease forwards 3.6s}
+.s0c strong{color:var(--dim);font-weight:300}
+#s0::before,#s0::after{content:'';position:absolute;left:6%;right:6%;height:1px;background:linear-gradient(90deg,transparent,rgba(78,216,212,.22),transparent);opacity:0;animation:fi .8s ease forwards}
+#s0::before{top:44px;animation-delay:2s}#s0::after{bottom:90px;animation-delay:2.2s}
+.s0sc{position:absolute;bottom:80px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;font-size:9px;letter-spacing:6px;color:var(--teal);text-transform:uppercase;opacity:0;animation:fi 1s ease forwards 5.8s,pulse 2.5s ease-in-out infinite 7s}
+.s0ln{width:1px;height:44px;background:linear-gradient(to bottom,var(--teal),transparent);animation:sbar 1.7s ease-in-out infinite}
+@keyframes sbar{0%,100%{transform:scaleY(1);opacity:.5}50%{transform:scaleY(1.5);opacity:1}}
+
+/* ── S1 WORLD ── */
+#s1{flex-direction:column;text-align:center;background:radial-gradient(ellipse 80% 60% at 50% 45%,rgba(10,22,42,.45) 0%,transparent 70%)}
+.sec-eye{font-family:'Cormorant Garamond',serif;font-size:10px;letter-spacing:8px;color:var(--teal);text-transform:uppercase;display:block;margin-bottom:14px}
+.sec-head{font-family:'Shippori Mincho',serif;font-size:clamp(24px,4vw,48px);font-weight:400;line-height:2.1;letter-spacing:5px;display:block;margin-bottom:48px}
+.k{color:var(--teal)}
+.tags{display:flex;flex-wrap:wrap;justify-content:center;gap:11px;max-width:720px}
+.tag{border:1px solid rgba(78,216,212,.15);padding:10px 22px;font-size:clamp(10px,1.1vw,12px);letter-spacing:4px;color:var(--dim);position:relative;overflow:hidden;opacity:0;transform:scale(.88);transition:opacity .5s ease,transform .5s ease,border-color .3s,color .3s,background .3s}
+.tag.on{opacity:1;transform:scale(1)}
+.tag.sold{border-color:rgba(217,122,140,.2)}
+.tag.sold::after{content:'SOLD';position:absolute;top:3px;right:5px;font-size:7px;letter-spacing:2px;color:var(--rose);opacity:.75}
+.tag:hover{border-color:var(--teal);color:var(--teal);background:rgba(78,216,212,.05)}
+.world-note{margin-top:52px;font-size:clamp(13px,1.5vw,16px);font-weight:200;line-height:3.4;color:var(--dimmer);letter-spacing:3px;max-width:640px}
+.world-note em{font-style:normal;color:var(--dim)}
+.world-note strong{color:var(--w);font-weight:300}
+
+/* ── S2 MIRCO ── */
+#s2{padding:0}
+.s2pw{position:absolute;inset:0;display:flex;align-items:stretch;justify-content:flex-end;pointer-events:none}
+.s2img{height:100%;width:auto;object-fit:cover;object-position:top center;opacity:0;transition:opacity 2.5s ease;filter:contrast(1.07) saturate(1.1);
+  -webkit-mask-image:linear-gradient(to left,rgba(0,0,0,.92) 22%,rgba(0,0,0,.55) 50%,transparent 76%),linear-gradient(to bottom,transparent 0%,black 6%,black 90%,transparent 100%);
+  -webkit-mask-composite:source-in;mask-image:linear-gradient(to left,rgba(0,0,0,.92) 22%,rgba(0,0,0,.55) 50%,transparent 76%),linear-gradient(to bottom,transparent 0%,black 6%,black 90%,transparent 100%);mask-composite:intersect}
+.s2img.on{opacity:1}
+.s2ab{position:absolute;inset:0;pointer-events:none;z-index:3;background:linear-gradient(135deg,rgba(78,216,212,.05) 0%,transparent 40%,rgba(157,142,200,.05) 70%,transparent 100%);mix-blend-mode:screen;animation:abr 7s ease-in-out infinite}
+@keyframes abr{0%,100%{opacity:.5;transform:translateX(0)}50%{opacity:1;transform:translateX(2px)}}
+.s2sc2{position:absolute;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(78,216,212,.22),transparent);z-index:4;pointer-events:none;animation:scn 5s linear infinite}
+@keyframes scn{from{top:0}to{top:100%}}
+.s2gr{position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(to right,rgba(2,5,9,.97) 0%,rgba(2,5,9,.72) 30%,rgba(2,5,9,.18) 58%,transparent 80%),linear-gradient(to top,rgba(2,5,9,.88) 0%,transparent 30%),linear-gradient(to bottom,rgba(2,5,9,.65) 0%,transparent 18%)}
+.hud{position:absolute;top:clamp(32px,6vh,68px);right:clamp(18px,4vw,52px);z-index:6;font-family:'Cormorant Garamond',serif;border:1px solid rgba(78,216,212,.13);background:rgba(2,5,9,.8);backdrop-filter:blur(14px);padding:18px 24px;min-width:205px}
+.ht{font-size:9px;letter-spacing:6px;color:var(--teal);text-transform:uppercase;display:block;margin-bottom:14px}
+.hr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:11px;letter-spacing:2px;color:var(--dimmer)}
+.hr:last-of-type{margin-bottom:0}
+.hs{font-size:8px;letter-spacing:3px}.red{color:var(--rose)}.grn{color:var(--teal)}
+.hsep{width:100%;height:1px;background:rgba(78,216,212,.1);margin:12px 0;position:relative;overflow:hidden}
+.hsep::after{content:'';position:absolute;top:0;left:-100%;width:80%;height:100%;background:linear-gradient(90deg,transparent,var(--teal),transparent);animation:hsa 3s linear infinite}
+@keyframes hsa{to{left:120%}}
+.s2ct{position:relative;z-index:5;width:100%;max-width:530px;display:flex;flex-direction:column;justify-content:center;padding:clamp(60px,12vh,130px) clamp(20px,7vw,130px)}
+.s2eye{font-family:'Cormorant Garamond',serif;font-size:10px;letter-spacing:8px;color:var(--teal);text-transform:uppercase;display:block;margin-bottom:20px}
+.s2nm{font-family:'Cormorant Garamond',serif;font-size:clamp(70px,12vw,148px);font-weight:200;font-style:italic;letter-spacing:4px;line-height:.88;color:transparent;background:linear-gradient(135deg,var(--w) 20%,var(--teal) 100%);-webkit-background-clip:text;background-clip:text;display:block;margin-bottom:36px}
+.s2bd{font-size:clamp(13px,1.5vw,16px);font-weight:200;line-height:3.6;color:var(--dim);letter-spacing:2px}
+.s2bd .em{color:var(--w);font-weight:300}.s2bd .tc{color:var(--teal)}.s2bd .rc{color:var(--rose)}
+
+/* ── S3 EMPTY LIFE ── */
+#s3{background:linear-gradient(180deg,rgba(6,12,22,.5) 0%,rgba(2,5,9,.9) 100%)}
+.s3in{max-width:880px;width:100%;display:grid;grid-template-columns:1fr 1fr;gap:clamp(32px,5vw,80px);align-items:center}
+@media(max-width:700px){.s3in{grid-template-columns:1fr}}
+.s3-eyebrow{font-family:'Cormorant Garamond',serif;font-size:10px;letter-spacing:8px;color:var(--vio);text-transform:uppercase;display:block;margin-bottom:28px}
+.s3-h{font-family:'Shippori Mincho',serif;font-size:clamp(22px,3.2vw,36px);font-weight:400;line-height:2.2;letter-spacing:4px;margin-bottom:32px}
+.s3-h em{font-style:normal;color:var(--teal)}
+.s3-body{font-size:clamp(13px,1.4vw,15px);font-weight:200;line-height:3.4;color:var(--dim);letter-spacing:2px}
+.s3-body strong{color:var(--w);font-weight:300}
+.routine{list-style:none;border-left:1px solid rgba(78,216,212,.15);padding-left:28px;display:flex;flex-direction:column;gap:22px}
+.routine li{position:relative;font-size:clamp(11px,1.2vw,13px);font-weight:200;letter-spacing:3px;color:var(--dimmer);line-height:2.4}
+.routine li::before{content:'';position:absolute;left:-32px;top:10px;width:6px;height:6px;border-radius:50%;border:1px solid rgba(78,216,212,.35);background:rgba(78,216,212,.08)}
+.routine li span{display:block;font-size:9px;letter-spacing:5px;color:var(--teal);margin-bottom:4px;text-transform:uppercase}
+.routine li.dim{opacity:.35}
+
+/* ── S4 GUITAR ── */
+#s4{flex-direction:column;text-align:center;background:radial-gradient(ellipse 60% 40% at 50% 55%,rgba(13,24,44,.55) 0%,transparent 70%)}
+.wire{width:2px;height:0;margin:0 auto 52px;background:linear-gradient(to bottom,transparent,var(--teal) 30%,var(--vio) 70%,transparent);box-shadow:0 0 20px rgba(78,216,212,.4);transition:height 1.6s cubic-bezier(.4,0,.2,1)}
+.wire.on{height:140px}
+.s4mt{font-family:'Shippori Mincho',serif;font-size:clamp(24px,4.2vw,52px);font-weight:400;line-height:2.3;letter-spacing:5px;max-width:740px}
+.s4mt em{font-style:normal;color:var(--teal)}
+.s4sub{margin-top:48px;font-size:clamp(13px,1.5vw,16px);font-weight:200;line-height:3.4;color:var(--dim);letter-spacing:3px;max-width:580px}
+.s4sub strong{color:var(--w);font-weight:300}.s4sub .rc{color:var(--rose)}
+.tears{display:flex;gap:10px;justify-content:center;margin-top:48px}
+.td{width:7px;height:14px;border-radius:50% 50% 50% 50%/38% 38% 62% 62%;background:linear-gradient(to bottom,rgba(78,216,212,.75),rgba(78,216,212,.05));animation:tdrop 3s ease-in-out infinite}
+.td:nth-child(2){animation-delay:.6s;transform:scale(.7)}.td:nth-child(3){animation-delay:1.2s;transform:scale(.48)}
+@keyframes tdrop{0%,100%{transform:translateY(0)}50%{transform:translateY(8px)}}
+.s4q{margin-top:40px;font-family:'Cormorant Garamond',serif;font-style:italic;font-size:clamp(12px,1.4vw,15px);letter-spacing:7px;color:var(--rose);opacity:0;transition:opacity 1.3s ease .7s}
+.s4q.on{opacity:.75}
+
+/* ── S5 DISCOVERY ── */
+#s5{background:linear-gradient(135deg,rgba(8,18,32,.6) 0%,rgba(2,5,9,.92) 100%)}
+.s5in{max-width:860px;width:100%}
+.news-ticker{border:1px solid rgba(78,216,212,.15);background:rgba(78,216,212,.04);padding:12px 20px;font-size:clamp(10px,1.1vw,12px);letter-spacing:4px;color:var(--teal);margin-top:24px}
+.news-ticker::before{content:'NEWS  ';color:var(--rose);letter-spacing:3px;font-size:9px}
+.disc-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:40px}
+@media(max-width:700px){.disc-cards{grid-template-columns:1fr}}
+.dcard{border:1px solid rgba(78,216,212,.1);padding:24px 20px;position:relative;overflow:hidden;opacity:0;transform:translateY(24px);transition:opacity .8s ease,transform .8s ease,border-color .3s,background .3s}
+.dcard.on{opacity:1;transform:translateY(0)}
+.dcard:hover{border-color:rgba(78,216,212,.28);background:rgba(78,216,212,.03)}
+.dcard::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent);opacity:.35}
+.dc-role{font-size:9px;letter-spacing:5px;color:var(--rose);text-transform:uppercase;display:block;margin-bottom:10px}
+.dc-mem{font-size:clamp(17px,2.2vw,22px);font-weight:200;letter-spacing:3px;display:block;margin-bottom:12px}
+.dc-txt{font-size:clamp(11px,1.2vw,13px);font-weight:200;color:var(--dim);letter-spacing:2px;line-height:2.8}
+.dc-txt .hl{color:var(--w);font-weight:300}
+.dc-num{position:absolute;bottom:14px;right:16px;font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:200;color:transparent;-webkit-text-stroke:1px rgba(78,216,212,.14);line-height:1}
+
+/* ── S6 ENCOUNTER ── */
+#s6{flex-direction:column;text-align:center;background:radial-gradient(ellipse 70% 50% at 50% 50%,rgba(12,22,42,.5) 0%,transparent 72%)}
+.enc-pre{font-family:'Cormorant Garamond',serif;font-size:10px;letter-spacing:8px;color:var(--vio);text-transform:uppercase;display:block;margin-bottom:44px;opacity:.85}
+.enc-main{font-family:'Shippori Mincho',serif;font-size:clamp(20px,3.5vw,42px);font-weight:400;line-height:2.6;letter-spacing:5px;max-width:760px;margin-bottom:52px}
+.enc-main em{font-style:normal;color:var(--teal)}.enc-main .rc{color:var(--rose)}
+.enc-quotes{display:flex;flex-direction:column;gap:28px;max-width:660px;border-left:1px solid rgba(78,216,212,.18);padding-left:32px;text-align:left;position:relative;overflow:hidden}
+.enc-quotes::after{content:'';position:absolute;top:0;left:0;width:1px;height:0;background:var(--teal);animation:lineGrow 2s ease forwards .5s;box-shadow:0 0 8px var(--teal)}
+@keyframes lineGrow{to{height:100%}}
+.eq{opacity:0;transform:translateX(-20px);transition:opacity .9s ease,transform .9s ease}
+.eq.on{opacity:1;transform:translateX(0)}
+.eq-who{font-size:9px;letter-spacing:5px;color:var(--teal);text-transform:uppercase;display:block;margin-bottom:8px}
+.eq-txt{font-family:'Shippori Mincho',serif;font-size:clamp(14px,1.8vw,20px);font-weight:400;letter-spacing:3px;line-height:2.4;color:var(--dim)}
+.eq-txt em{font-style:normal;color:var(--w)}
+
+/* ── S7 DECLARATION ── */
+#s7{flex-direction:column;text-align:center;overflow:hidden}
+.rip{position:absolute;border-radius:50%;border:1px solid rgba(78,216,212,.09);top:50%;left:50%;transform:translate(-50%,-50%);animation:rip var(--d) ease-out infinite var(--dl)}
+@keyframes rip{0%{width:0;height:0;opacity:.65}100%{width:130vmax;height:130vmax;opacity:0}}
+.decl-pre{font-family:'Cormorant Garamond',serif;font-size:10px;letter-spacing:10px;color:var(--teal);text-transform:uppercase;display:block;margin-bottom:44px;position:relative;z-index:2}
+.decl-q{font-family:'Shippori Mincho',serif;font-size:clamp(20px,3.8vw,46px);font-weight:400;line-height:2.7;letter-spacing:4px;position:relative;z-index:2;max-width:700px}
+.decl-q .qm{font-family:'Cormorant Garamond',serif;font-size:1.5em;color:var(--teal);line-height:0;vertical-align:-.25em}
+.decl-q .ac{color:var(--teal)}.decl-q .rc{color:var(--rose)}
+.decl-by{margin-top:36px;font-family:'Cormorant Garamond',serif;font-style:italic;font-size:clamp(14px,1.8vw,20px);letter-spacing:7px;color:var(--rose);position:relative;z-index:2}
+.wv{display:flex;align-items:center;gap:3px;margin-top:52px;height:48px;position:relative;z-index:2}
+.wb{width:3px;border-radius:2px;background:linear-gradient(to top,var(--t2),var(--vio));box-shadow:0 0 4px rgba(78,216,212,.3);animation:wba var(--ws) ease-in-out infinite alternate var(--wd)}
+@keyframes wba{from{height:3px;opacity:.3}to{height:var(--wh);opacity:1}}
+
+/* ── S8 FINALE ── */
+#s8{flex-direction:column;text-align:center;background:radial-gradient(ellipse 80% 60% at 50% 50%,rgba(10,22,42,.42) 0%,transparent 72%)}
+.fin-pre{font-family:'Cormorant Garamond',serif;font-size:10px;letter-spacing:11px;color:var(--teal);text-transform:uppercase;display:block;margin-bottom:48px;opacity:.85}
+.fin-big{font-family:'Cormorant Garamond',serif;font-size:clamp(92px,18vw,228px);font-weight:200;font-style:italic;letter-spacing:-5px;line-height:.82;color:transparent;background:linear-gradient(160deg,var(--w) 0%,var(--teal) 28%,var(--vio) 54%,var(--rose) 76%,var(--w) 100%);background-size:300% auto;-webkit-background-clip:text;background-clip:text;animation:shim 10s linear infinite;display:block}
+.fin-jp{font-family:'Shippori Mincho',serif;font-size:clamp(15px,2vw,22px);font-weight:400;letter-spacing:16px;color:var(--dim);display:block;margin-top:24px}
+.fin-rule{width:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),var(--vio),transparent);margin:52px auto;transition:width 1.7s ease}
+.fin-rule.on{width:240px}
+.fin-body{font-size:clamp(12px,1.4vw,15px);font-weight:200;line-height:3.8;color:var(--dimmer);letter-spacing:3px;max-width:560px}
+.fin-body .lh{color:var(--dim)}.fin-body .lt{color:var(--teal);letter-spacing:5px;font-size:.88em;display:block;margin-top:12px}
+.fin-body .ll{color:var(--rose);font-size:.88em;display:block;margin-top:6px;letter-spacing:4px}
+.fin-staff{margin-top:72px;display:flex;gap:52px;justify-content:center;flex-wrap:wrap}
+.sti{text-align:center}
+.str{font-size:9px;letter-spacing:5px;color:var(--teal);text-transform:uppercase;display:block;margin-bottom:6px}
+.stn{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:clamp(13px,1.5vw,17px);font-weight:300;letter-spacing:3px;color:var(--dim)}
+
+@keyframes fu{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fi{from{opacity:0}to{opacity:1}}
+@keyframes titleIn{0%{opacity:0;transform:translateY(46px);filter:blur(20px)}100%{opacity:1;transform:translateY(0);filter:blur(0)}}
+@keyframes shim{from{background-position:0% 50%}to{background-position:200% 50%}}
+@keyframes ruler{from{width:0}to{width:180px}}
+@keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+
+@media(max-width:600px){.hud{display:none}.s2img{opacity:.42!important}.s2gr{background:linear-gradient(to right,rgba(2,5,9,.97) 0%,rgba(2,5,9,.88) 100%)}}
+</style>
+</head>
+<body>
+<div id="dot"></div><div id="ring"></div>
+<canvas id="cv"></canvas>
+<div class="noise"></div><div class="vig"></div>
+<div id="bar"></div>
+
+<!-- AUDIO PLAYER -->
+<div id="player">
+  <button id="pbtn" aria-label="play/pause">▶</button>
+  <div class="pmid">
+    <div class="ptop">
+      <span class="tname">REPLAY — Theme Song</span>
+      <span class="ttime" id="tt">0:00 / 0:00</span>
+    </div>
+    <canvas id="vcv" height="32"></canvas>
+    <input type="range" id="seek" min="0" max="100" value="0" step="0.1">
+  </div>
+</div>
+
+<!-- AUDIO — separate file reference, works locally and on GitHub Pages -->
+<audio id="audio" preload="auto" loop>
+  <source src="assets/theme.mp3" type="audio/mpeg">
+</audio>
+
+<div class="w">
+
+<!-- S0 OPENING -->
+<section id="s0">
+  <span class="s0y">近未来 ／ Near Future ／ 記録売買時代 2147</span>
+  <span class="s0e">Replay</span>
+  <span class="s0j">リプレイ — 再生</span>
+  <div class="s0rule"></div>
+  <p class="s0c">人は「記録」を売ることができるようになった。<br><strong>思い出、夢、家族、才能——</strong><br>すべてはデータとして保存され、誰かが買うことができる。<br><br>これは、失われた記憶と、それを受け取った人たちの、<br><strong>音楽でつながる "再生" の物語。</strong></p>
+  <div class="s0sc"><span>scroll</span><div class="s0ln"></div></div>
+</section>
+
+<!-- S1 WORLD -->
+<section id="s1">
+  <div style="z-index:2;display:flex;flex-direction:column;align-items:center;max-width:760px;width:100%;text-align:center;">
+    <span class="sec-eye rv" id="e1a">Memory Marketplace ／ 記録市場</span>
+    <span class="sec-head rv" id="e1b" style="transition-delay:.18s">人の<span class="k">「記録」</span>には<br>値段がついた。</span>
+    <div class="tags" id="tgs">
+      <div class="tag sold">家族の記憶</div><div class="tag sold">初恋の感情</div>
+      <div class="tag sold">幼少期の夢</div><div class="tag sold">歌声・才能</div>
+      <div class="tag sold">父の顔</div><div class="tag sold">母の声</div>
+      <div class="tag sold">笑った記憶</div><div class="tag sold">泣いた記憶</div>
+      <div class="tag sold">夢見た未来</div><div class="tag sold">大切な誰か</div>
+    </div>
+    <p class="world-note rv" id="e1c" style="transition-delay:.4s;text-align:center">
+      記録を売ることは、合法だった。<br>
+      <em>記録を買うことも、合法だった。</em><br><br>
+      そして——<strong>全てを売り払った少女がいた。</strong><br>
+      名前だけを残して。
+    </p>
+  </div>
+</section>
+
+<!-- S2 MIRCO -->
+<section id="s2">
+  <div class="s2pw"><img class="s2img" id="s2i" src="assets/mirco.jpg" alt="mirco"></div>
+  <div class="s2ab"></div><div class="s2sc2"></div><div class="s2gr"></div>
+  <div class="hud rv" id="hud" style="transition-delay:.7s">
+    <span class="ht">Memory Log ／ 記録データ</span>
+    <div class="hr"><span>家族</span><span class="hs red">SOLD ✕</span></div>
+    <div class="hr"><span>夢</span><span class="hs red">SOLD ✕</span></div>
+    <div class="hr"><span>歌声</span><span class="hs red">SOLD ✕</span></div>
+    <div class="hr"><span>感情</span><span class="hs red">SOLD ✕</span></div>
+    <div class="hr"><span>涙の理由</span><span class="hs red">SOLD ✕</span></div>
+    <div class="hsep"></div>
+    <div class="hr"><span>名前</span><span class="hs grn">mirco ✓</span></div>
+  </div>
+  <div class="s2ct">
+    <span class="s2eye rv">Protagonist ／ 主人公</span>
+    <span class="s2nm rv" style="transition-delay:.22s">mirco</span>
+    <p class="s2bd rv" style="transition-delay:.42s">
+      <span class="em">自分のすべての記録を売り、</span><br>
+      過去も、何者だったかも知らない少女。<br><br>
+      感情も、思い出も、家族の顔も——<br>
+      全て<span class="tc">データ</span>として他者に渡した。<br><br>
+      今の彼女に残るのは、<br>
+      <span class="rc">「空っぽ」</span>という事実だけ。
+    </p>
+  </div>
+</section>
+
+<!-- S3 EMPTY LIFE -->
+<section id="s3">
+  <div class="s3in" style="position:relative;z-index:2">
+    <div>
+      <span class="s3-eyebrow rv">Daily Life ／ 空っぽの日常</span>
+      <div class="s3-h rv" style="transition-delay:.18s">mircoの一日は<br>いつも<em>同じだった。</em></div>
+      <p class="s3-body rv" style="transition-delay:.35s">
+        感情がなければ、悲しくない。<br>
+        記憶がなければ、寂しくない。<br>
+        夢がなければ、失うものもない。<br><br>
+        <strong>それが彼女の選んだ「安全」だった。</strong><br><br>
+        でも——安全であることは、<br>
+        生きていることと、同じではなかった。
+      </p>
+    </div>
+    <div class="rv" style="transition-delay:.5s">
+      <ul class="routine">
+        <li class="dim"><span>06:00 AM</span>目を覚ます。感情なし。</li>
+        <li class="dim"><span>08:00 AM</span>食事。味は感じる。感動はない。</li>
+        <li class="dim"><span>10:00 AM</span>街を歩く。人々の笑い声が遠い。</li>
+        <li><span>14:32 PM</span>楽器屋の前で、足が止まる。</li>
+        <li><span>14:33 PM</span><strong style="color:var(--w);font-weight:300">——なぜ、涙が出るのか。</strong></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- S4 GUITAR -->
+<section id="s4">
+  <div style="position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;width:100%">
+    <span class="sec-eye rv" style="color:var(--rose)">The Turning Point ／ 転機</span>
+    <div class="wire rv" id="wre" style="transition-delay:.2s"></div>
+    <div class="s4mt rv" style="transition-delay:.35s;text-align:center">
+      街の楽器屋で<br><em>ギターを手にした瞬間——</em><br>売ったはずの<em>涙が、流れた。</em>
+    </div>
+    <p class="s4sub rv" style="transition-delay:.55s;text-align:center">
+      記憶はない。感情のデータも、とっくに売った。<br>
+      なのに指が震え、胸が痛い。<br>
+      なのに——<span class="rc">理由もなく、泣いていた。</span><br><br>
+      <strong>魂は、売ることができなかった。</strong><br>
+      彼女の体は、まだ覚えていた。<br>
+      自分が、かつて音楽を愛していたことを。
+    </p>
+    <div class="tears rv" style="transition-delay:.75s">
+      <div class="td"></div><div class="td"></div><div class="td"></div>
+    </div>
+    <div class="s4q rv" style="transition-delay:.95s">— 記憶は消えても、魂は覚えている —</div>
+  </div>
+</section>
+
+<!-- S5 DISCOVERY -->
+<section id="s5">
+  <div class="s5in" style="position:relative;z-index:2">
+    <span class="sec-eye rv" id="e5a">Discovery ／ 発覚</span>
+    <span class="sec-head rv" id="e5b" style="transition-delay:.18s;margin-bottom:0">彼女の記録を買った人たちが、<br><span class="k">彼女の歌を探していた。</span></span>
+    <div class="news-ticker rv" id="e5c" style="transition-delay:.35s">「mircoという少女の歌を聴いたことがある方、連絡を」</div>
+    <div class="disc-cards" id="dcards">
+      <div class="dcard">
+        <span class="dc-role">Woman ／ 中年の女性</span>
+        <span class="dc-mem">家族の記憶</span>
+        <p class="dc-txt">mircoが愛した人たちの顔を今は自分だけが知っている。<br><span class="hl">「この記憶の持ち主に、会いたい。」</span></p>
+        <span class="dc-num">01</span>
+      </div>
+      <div class="dcard" style="transition-delay:.15s">
+        <span class="dc-role">Boy ／ 少年</span>
+        <span class="dc-mem">夢の記憶</span>
+        <p class="dc-txt">眠るたびに見る、知らない景色。誰かの夢を生きている。<br><span class="hl">「この夢の主は、どこにいる？」</span></p>
+        <span class="dc-num">02</span>
+      </div>
+      <div class="dcard" style="transition-delay:.3s">
+        <span class="dc-role">Elder ／ 老人</span>
+        <span class="dc-mem">歌声の記憶</span>
+        <p class="dc-txt">老いた喉で、知らない歌を口ずさむ。その声は自分のものではない。<br><span class="hl">「一度だけ、あの子に歌ってほしい。」</span></p>
+        <span class="dc-num">03</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- S6 ENCOUNTER -->
+<section id="s6">
+  <div style="position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;max-width:820px;width:100%">
+    <span class="enc-pre rv">The Encounter ／ 出会い</span>
+    <div class="enc-main rv" style="transition-delay:.2s;text-align:center">
+      三人はそれぞれ、<em>mircoを探し出した。</em><br>
+      そして初めて、<span class="rc">バラバラだった欠片が</span><br>
+      一か所に集まった。
+    </div>
+    <div class="enc-quotes" style="align-self:flex-start">
+      <div class="eq rv" id="eq1" style="transition-delay:.35s">
+        <span class="eq-who">中年の女性より</span>
+        <div class="eq-txt">「あなたの家族は、みんなあなたを愛していた。<br><em>その記憶を、あなたに返したい。</em>」</div>
+      </div>
+      <div class="eq rv" id="eq2" style="transition-delay:.55s">
+        <span class="eq-who">少年より</span>
+        <div class="eq-txt">「あなたが夢見た未来を、僕はずっと見続けていた。<br><em>あなたの夢は、まだ死んでいない。</em>」</div>
+      </div>
+      <div class="eq rv" id="eq3" style="transition-delay:.75s">
+        <span class="eq-who">老人より</span>
+        <div class="eq-txt">「この歌声は、あなたのものだ。<br><em>もう一度——あなたの声で、歌ってくれないか。</em>」</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- S7 DECLARATION -->
+<section id="s7">
+  <div class="rip" style="--d:6s;--dl:0s"></div>
+  <div class="rip" style="--d:6s;--dl:2s"></div>
+  <div class="rip" style="--d:6s;--dl:4s"></div>
+  <span class="decl-pre rv">Resolution ／ 決意</span>
+  <div class="decl-q rv" style="transition-delay:.3s;text-align:center">
+    <span class="qm">"</span>私は記憶を持っていない。<br>
+    感情も、家族の顔も、夢も。<br>
+    でも——あなたたちが持っていてくれた。<br><br>
+    だから私は、<span class="ac">歌える。</span><br>
+    一緒に、<span class="rc">歌いたい。</span><span class="qm">"</span>
+  </div>
+  <div class="decl-by rv" style="transition-delay:.6s">——mirco</div>
+  <div class="wv rv" id="wv" style="transition-delay:.9s"></div>
+</section>
+
+<!-- S8 FINALE -->
+<section id="s8">
+  <div style="position:relative;z-index:2;text-align:center;display:flex;flex-direction:column;align-items:center">
+    <span class="fin-pre rv">A Story of Reconnection</span>
+    <span class="fin-big rv" style="transition-delay:.2s">Replay</span>
+    <span class="fin-jp rv" style="transition-delay:.5s">リプレイ — 再生</span>
+    <div class="fin-rule rv" id="fr" style="transition-delay:.8s"></div>
+    <p class="fin-body rv" style="transition-delay:1s">
+      <span class="lh">記憶を失った少女と、その記憶を受け取った人たちが</span><br>
+      バラバラになった人生を<span class="lh">音楽でつなぎ直していく——</span><br><br>
+      <span class="lh">それは「失った」のではなく、</span><br>
+      <span class="lh">「誰かに預けていた」のかもしれない。</span><br>
+      <span class="lt">— 記憶は、愛した証だ —</span>
+      <span class="ll">— "再生" の物語 —</span>
+    </p>
+    <div class="fin-staff rv" style="transition-delay:1.3s">
+      <div class="sti"><span class="str">Story</span><span class="stn">Original Work</span></div>
+      <div class="sti"><span class="str">Protagonist</span><span class="stn">mirco</span></div>
+      <div class="sti"><span class="str">Theme</span><span class="stn">Memory × Music</span></div>
+    </div>
+  </div>
+</section>
+
+</div><!-- /wrap -->
+
+<script>
+/* CURSOR */
+const dot=document.getElementById('dot'),ring=document.getElementById('ring');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;dot.style.left=mx+'px';dot.style.top=my+'px'});
+(function cl(){rx+=(mx-rx)*.1;ry+=(my-ry)*.1;ring.style.left=rx+'px';ring.style.top=ry+'px';requestAnimationFrame(cl)})();
+
+/* CANVAS */
+const cv=document.getElementById('cv'),c=cv.getContext('2d');
+let W,H;
+function rsz(){W=cv.width=innerWidth;H=cv.height=innerHeight}
+window.addEventListener('resize',rsz);rsz();
+class St{constructor(){this.r()}r(){this.x=Math.random()*W;this.y=Math.random()*H;this.vx=(Math.random()-.5)*.22;this.vy=(Math.random()-.5)*.22;this.s=Math.random()*1.3+.2;this.a=Math.random()*.45+.06;this.hue=Math.random()>.55?185:268;this.b=Math.random()*Math.PI*2}u(){this.x+=this.vx;this.y+=this.vy;this.b+=.013;if(this.x<0||this.x>W||this.y<0||this.y>H)this.r()}d(){const a=this.a*(.55+.45*Math.sin(this.b));c.beginPath();c.arc(this.x,this.y,this.s,0,Math.PI*2);c.fillStyle=`hsla(${this.hue},65%,72%,${a})`;c.fill()}}
+class Ds{constructor(){this.r()}r(){this.x=Math.floor(Math.random()*40)*W/40;this.y=-100;this.sp=Math.random()*1+.25;this.a=Math.random()*.15+.03;this.ch=Array.from({length:20},()=>Math.random()>.5?'1':'0')}u(){this.y+=this.sp;if(this.y>H+130)this.r();if(Math.random()>.97)this.ch[0]=Math.random()>.5?'1':'0'}d(){c.font='10px monospace';for(let i=0;i<this.ch.length;i++){c.fillStyle=`rgba(78,216,212,${this.a*(1-i/this.ch.length)})`;c.fillText(this.ch[i],this.x,this.y-i*12)}}}
+const sts=[],dss=[];for(let i=0;i<240;i++)sts.push(new St());for(let i=0;i<22;i++)dss.push(new Ds());
+function bgLoop(){c.clearRect(0,0,W,H);const g=c.createRadialGradient(W/2,H*.42,0,W/2,H*.42,W*.9);g.addColorStop(0,'rgba(9,20,40,.5)');g.addColorStop(1,'rgba(2,5,9,0)');c.fillStyle=g;c.fillRect(0,0,W,H);dss.forEach(d=>{d.u();d.d()});sts.forEach(s=>{s.u();s.d()});requestAnimationFrame(bgLoop)}
+bgLoop();
+
+/* AUDIO + VISUALIZER */
+const audio=document.getElementById('audio');
+const pbtn=document.getElementById('pbtn');
+const seek=document.getElementById('seek');
+const ttEl=document.getElementById('tt');
+const vcv=document.getElementById('vcv');
+const vctx=vcv.getContext('2d');
+let actx,analyser,asrc,vizGo=false,audioReady=false;
+
+function fmt(s){if(!s||isNaN(s))return'0:00';return Math.floor(s/60)+':'+(Math.floor(s%60)+'').padStart(2,'0')}
+
+function initAudio(){
+  if(audioReady)return; audioReady=true;
+  try{
+    actx=new(window.AudioContext||window.webkitAudioContext)();
+    analyser=actx.createAnalyser(); analyser.fftSize=256;
+    asrc=actx.createMediaElementSource(audio);
+    asrc.connect(analyser); analyser.connect(actx.destination);
+  }catch(e){}
+  audio.play().then(()=>{pbtn.textContent='⏸';vizGo=true;drawViz()}).catch(()=>{});
+}
+
+function drawViz(){
+  if(!vizGo)return; requestAnimationFrame(drawViz);
+  const W2=vcv.clientWidth||400,H2=vcv.height;
+  if(vcv.width!==W2)vcv.width=W2;
+  vctx.clearRect(0,0,W2,H2);
+  if(!analyser)return;
+  const d=new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(d);
+  d.forEach((v,i)=>{
+    const h=v/255*H2,hue=185+v*.35;
+    vctx.fillStyle=`hsla(${hue},70%,65%,${.25+v/255*.75})`;
+    vctx.fillRect(i*(W2/d.length),H2-h,(W2/d.length)*.8,h);
+  });
+}
+
+pbtn.addEventListener('click',e=>{
+  e.stopPropagation();
+  if(!audioReady){initAudio();return}
+  if(audio.paused){audio.play();pbtn.textContent='⏸';vizGo=true;drawViz()}
+  else{audio.pause();pbtn.textContent='▶';vizGo=false}
+});
+
+let fired=false;
+['click','scroll','touchstart'].forEach(ev=>{
+  document.addEventListener(ev,()=>{if(!fired){fired=true;initAudio()}},{once:true,passive:true});
+});
+
+audio.addEventListener('timeupdate',()=>{
+  if(!audio.duration)return;
+  seek.value=audio.currentTime/audio.duration*100;
+  ttEl.textContent=fmt(audio.currentTime)+' / '+fmt(audio.duration);
+});
+seek.addEventListener('input',()=>{if(audio.duration)audio.currentTime=seek.value/100*audio.duration});
+audio.addEventListener('play',()=>pbtn.textContent='⏸');
+audio.addEventListener('pause',()=>pbtn.textContent='▶');
+
+/* OBSERVERS */
+const io=new IntersectionObserver(ents=>{ents.forEach(e=>{if(e.isIntersecting)e.target.classList.add('on')})},{threshold:.12});
+document.querySelectorAll('.rv').forEach(el=>io.observe(el));
+new IntersectionObserver(ents=>{ents.forEach(e=>{if(e.isIntersecting)e.target.classList.add('on')})},{threshold:.06}).observe(document.getElementById('s2i'));
+
+const tags=document.querySelectorAll('.tag');
+new IntersectionObserver(ents=>{ents.forEach(e=>{if(e.isIntersecting)tags.forEach((t,i)=>setTimeout(()=>t.classList.add('on'),i*65))})},{threshold:.2}).observe(document.getElementById('tgs'));
+
+const dcards=document.querySelectorAll('.dcard');
+new IntersectionObserver(ents=>{ents.forEach(e=>{if(e.isIntersecting)dcards.forEach((d,i)=>setTimeout(()=>d.classList.add('on'),i*180))})},{threshold:.15}).observe(document.getElementById('dcards'));
+
+/* WAVE BARS */
+const wvEl=document.getElementById('wv');
+[5,12,22,34,42,38,28,46,24,40,46,18,30,42,22,15,36,48,26,17,9,20,32,46,38,24,13,30,44,28].forEach((h,i)=>{
+  const b=document.createElement('div'); b.className='wb';
+  const spds=['1.1s','0.85s','1.4s','0.65s','1.15s','0.78s','1.5s','0.6s','1.3s','0.95s','0.72s','1.55s','1.05s','0.82s','1.2s','1.45s','0.9s','0.68s','1.3s','1s','1.2s','0.75s','1.0s','0.62s','1.3s','0.92s','1.6s','0.7s','1.1s','0.85s'];
+  b.style.cssText=`--wh:${h}px;--ws:${spds[i]};--wd:${(i*.055).toFixed(2)}s;height:${h}px`;
+  wvEl.appendChild(b);
+});
+
+/* PROGRESS */
+window.addEventListener('scroll',()=>{document.getElementById('bar').style.width=Math.min(scrollY/(document.body.scrollHeight-innerHeight)*100,100)+'%'});
+window.addEventListener('scroll',()=>{const s=document.querySelector('.s0sc');if(s)s.style.opacity='0'},{once:true});
+</script>
+</body>
+</html>
